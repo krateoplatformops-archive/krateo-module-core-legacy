@@ -1,0 +1,9 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Configuration
+metadata:
+  name: krateo-module-core
+spec:
+  package: ghcr.io/krateoplatformops/krateo-module-core:latest
+  packagePullPolicy: Always
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1

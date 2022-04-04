@@ -1,0 +1,390 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  #  name: demostacks.gcp-stack-template-plus.projectkerberus.io
+  name: k8s.core.modules.krateo.io
+  labels:
+    platform: kubernetes
+spec:
+  #  writeConnectionSecretsToNamespace: crossplane-system
+  writeConnectionSecretsToNamespace: krateo-system
+  compositeTypeRef:
+    #    apiVersion: gcp-stack-template-plus.projectkerberus.io/v1alpha1
+    apiVersion: modules.krateo.io/v1alpha1
+    #    kind: DemoStack
+    kind: Core
+  resources:
+    - base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: ProviderConfig
+        spec:
+          credentials:
+            source: InjectedIdentity
+      patches:
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-helm-providerconfig-incluster"
+      readinessChecks:
+        - type: None
+    - base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          forProvider:
+            chart:
+              name: argo-cd
+              repository: https://argoproj.github.io/argo-helm
+              version: 3.26.5
+            namespace: krateo-system
+            values:
+              server:
+                # extraArgs:
+                #   - --insecure
+                rbacConfig:
+                  policy.default: "role:admin"
+                config:
+                  accounts.krateo-dashboard: apiKey, login
+                  accounts.krateo-dashboard.enabled: "true"
+                resources:
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+              controller:
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+                  requests:
+                    cpu: 250m
+                    memory: 256Mi
+              dex:
+                resources:
+                  limits:
+                    cpu: 50m
+                    memory: 64Mi
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+              redis:
+                resources:
+                  limits:
+                    cpu: 200m
+                    memory: 128Mi
+                  requests:
+                    cpu: 100m
+                    memory: 64Mi
+              repoServer:
+                resources:
+                  limits:
+                    cpu: 50m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+      patches:
+        - fromFieldPath: "spec.argo-cd.version"
+          toFieldPath: "spec.forProvider.chart.version"
+        - fromFieldPath: "spec.argo-cd.redis.securityContext"
+          toFieldPath: "spec.forProvider.values.redis.securityContext"
+        - fromFieldPath: "spec.argo-cd.redis.securityContext.runAsNonRoot"
+          toFieldPath: "spec.forProvider.values.redis.securityContext.runAsNonRoot"
+        - fromFieldPath: "spec.argo-cd.redis.securityContext.runAsUser"
+          toFieldPath: "spec.forProvider.values.redis.securityContext.runAsUser"
+        - fromFieldPath: metadata.name
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-helm-providerconfig-incluster"
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-release-argocd"
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+    - base:
+        apiVersion: pkg.crossplane.io/v1alpha1
+        kind: ControllerConfig
+        spec:
+          args:
+            - --debug
+          securityContext: {}
+          podSecurityContext: {}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      patches:
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-argocd-controllerconfig"
+    - base:
+        apiVersion: pkg.crossplane.io/v1
+        kind: Provider
+        metadata:
+          name: provider-argocd
+        spec:
+          package: "ghcr.io/krateoplatformops/crossplane-provider-argocd-token:0.1.14"
+          packagePullPolicy: Always
+          # packagePullSecrets:
+          #   - name: cr-token
+      patches:
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-argocd"
+        - fromFieldPath: metadata.name
+          toFieldPath: spec.controllerConfigRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-argocd-controllerconfig"
+    - base:
+        apiVersion: argocd.krateoplatformops.io/v1alpha1
+        kind: ProviderConfig
+        metadata:
+          name: provider-argocd-providerconfig
+        spec:
+          #          serverUrl: https://argocd-server.argocd.svc:443
+          credentials:
+            source: Secret
+            secretRef:
+              namespace: krateo-system
+              name: argocd-initial-admin-secret
+              key: password
+      patches:
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-argocd-providerconfig"
+        - fromFieldPath: metadata.name
+          toFieldPath: spec.serverUrl
+          transforms:
+            - type: string
+              string:
+                fmt: "https://%s-argocd-server.krateo-system.svc:443"
+    # - base:
+    #     apiVersion: v1
+    #     kind: ConfigMap
+    #     metadata:
+    #       name: argocd-cm
+    #       namespace: krateo-system
+    #       labels:
+    #         app.kubernetes.io/name: argocd-cm
+    #         app.kubernetes.io/part-of: argocd
+    #     data:
+    #       # add an additional local user with apiKey and login capabilities
+    #       #   apiKey - allows generating API keys
+    #       #   login - allows to login using UI
+    #       accounts.krateo-dashboard: apiKey, login
+    - base:
+        apiVersion: argocd.krateoplatformops.io/v1alpha1
+        kind: Token
+        metadata:
+          name: krateo-dashboard-argocd-token
+        spec:
+          forProvider:
+            expiresIn: 0s
+            account: krateo-dashboard
+            writeTokenSecretToRef:
+              name: krateo-dashboard-argocd-token
+              key: authToken
+              namespace: krateo-system
+      patches:
+        - fromFieldPath: metadata.name
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-argocd-providerconfig"
+    - base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          forProvider:
+            chart:
+              name: krateo-dashboard
+              repository: https://krateoplatformops.github.io/krateo-dashboard
+              version: 0.3.113
+            namespace: krateo-system
+      patches:
+        - fromFieldPath: "spec.krateo-dashboard.version"
+          toFieldPath: "spec.forProvider.chart.version"
+        - fromFieldPath: metadata.name
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-provider-helm-providerconfig-incluster"
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-krateodashboard"
+        - fromFieldPath: "spec.organization"
+          toFieldPath: "spec.forProvider.values.organization"
+        - fromFieldPath: "spec.frontendUrl"
+          toFieldPath: "spec.forProvider.values.frontendUrl"
+        - fromFieldPath: "spec.frontend.service.type"
+          toFieldPath: "spec.forProvider.values.frontend.service.type"
+        - fromFieldPath: "spec.backend.service.type"
+          toFieldPath: "spec.forProvider.values.backend.service.type"
+        - fromFieldPath: "spec.backendUrl"
+          toFieldPath: "spec.forProvider.values.backendUrl"
+        - fromFieldPath: "spec.sonarqube.token"
+          toFieldPath: "spec.forProvider.values.sonarqube.token"
+        - fromFieldPath: "spec.sonarqube.target"
+          toFieldPath: "spec.forProvider.values.sonarqube.target"
+        - fromFieldPath: "spec.grafana.target"
+          toFieldPath: "spec.forProvider.values.grafana.target"
+        - fromFieldPath: "spec.grafana.token"
+          toFieldPath: "spec.forProvider.values.grafana.token"
+        - fromFieldPath: "spec.prometheus.target"
+          toFieldPath: "spec.forProvider.values.prometheus.target"
+        - fromFieldPath: "spec.prometheus.target"
+          toFieldPath: "spec.forProvider.values.prometheus.token"
+        - fromFieldPath: "spec.providers.github.token"
+          toFieldPath: "spec.forProvider.values.providers.github.token"
+        - fromFieldPath: "spec.providers.github.clientId"
+          toFieldPath: "spec.forProvider.values.providers.github.clientId"
+        - fromFieldPath: "spec.providers.github.clientSecret"
+          toFieldPath: "spec.forProvider.values.providers.github.clientSecret"
+        - fromFieldPath: "spec.kubernetes.customResources"
+          toFieldPath: "spec.forProvider.values.kubernetes.customResources"
+        - fromFieldPath: "spec.kubernetes.clusters"
+          toFieldPath: "spec.forProvider.values.kubernetes.clusters"
+        - fromFieldPath: "spec.auth.github.token"
+          toFieldPath: "spec.forProvider.values.auth.github.token"
+        - fromFieldPath: "spec.auth.github.clientId"
+          toFieldPath: "spec.forProvider.values.auth.github.clientId"
+        - fromFieldPath: "spec.auth.github.clientSecret"
+          toFieldPath: "spec.forProvider.values.auth.github.clientSecret"
+        - fromFieldPath: "spec.ingress.annotations[kubernetes.io/ingress.class]"
+          toFieldPath: "spec.forProvider.values.ingress.annotations[kubernetes.io/ingress.class]"
+        - fromFieldPath: "spec.ingress.annotations[kubernetes.io/tls-acme]"
+          toFieldPath: "spec.forProvider.values.ingress.annotations[kubernetes.io/tls-acme]"
+        - fromFieldPath: "spec.ingress.annotations[ingress.kubernetes.io/force-ssl-redirect]"
+          toFieldPath: "spec.forProvider.values.ingress.annotations[ingress.kubernetes.io/force-ssl-redirect]"
+        - fromFieldPath: "spec.ingress.enabled"
+          toFieldPath: "spec.forProvider.values.ingress.enabled"
+        - fromFieldPath: "spec.ingress.tls.enabled"
+          toFieldPath: "spec.forProvider.values.ingress.tls.enabled"
+        - fromFieldPath: "spec.lighthouse.enabled"
+          toFieldPath: "spec.forProvider.values.lighthouse.enabled"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.enabled"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.enabled"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.existingClaim"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.existingClaim"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.mountPath"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.mountPath"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.subPath"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.subPath"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.storageClass"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.storageClass"
+        # - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.accessModes"
+        #   toFieldPath: "spec.forProvider.values.postgresql.persistence.accessModes"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.snapshotName"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.snapshotName"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.size"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.size"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.annotations"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.annotations"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.persistence.selector"
+          toFieldPath: "spec.forProvider.values.postgresql.persistence.selector"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.volumePermissions.enabled"
+          toFieldPath: "spec.forProvider.values.postgresql.volumePermissions.enabled"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.volumePermissions.securityContext.runAsUser"
+          toFieldPath: "spec.forProvider.values.postgresql.volumePermissions.securityContext.runAsUser"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.securityContext.enabled"
+          toFieldPath: "spec.forProvider.values.postgresql.securityContext.enabled"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.shmVolume.enabled"
+          toFieldPath: "spec.forProvider.values.postgresql.shmVolume.enabled"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.shmVolume.chmod.enabled"
+          toFieldPath: "spec.forProvider.values.postgresql.shmVolume.chmod.enabled"
+        - fromFieldPath: "spec.krateo-dashboard.postgresql.containerSecurityContext.enabled"
+          toFieldPath: "spec.forProvider.values.postgresql.containerSecurityContext.enabled"
+        # keptn
+        - fromFieldPath: "spec.krateo-dashboard.keptn.bridge"
+          toFieldPath: "spec.forProvider.values.keptn.bridge"
+        - fromFieldPath: "spec.krateo-dashboard.keptn.api"
+          toFieldPath: "spec.forProvider.values.keptn.api"
+        - fromFieldPath: "spec.krateo-dashboard.keptn.bridgeToken"
+          toFieldPath: "spec.forProvider.values.keptn.bridgeToken"
+        - fromFieldPath: "spec.krateo-dashboard.keptn.apiToken"
+          toFieldPath: "spec.forProvider.values.keptn.apiToken"
+        # ldap
+        - fromFieldPath: "spec.ldap.enabled"
+          toFieldPath: "spec.forProvider.values.ldap.enabled"
+        - fromFieldPath: "spec.ldap.secret"
+          toFieldPath: "spec.forProvider.values.ldap.secret"
+        - fromFieldPath: "spec.ldap.target"
+          toFieldPath: "spec.forProvider.values.ldap.target"
+        - fromFieldPath: "spec.ldap.bind.dn"
+          toFieldPath: "spec.forProvider.values.ldap.bind.dn"
+        - fromFieldPath: "spec.ldap.users.dn"
+          toFieldPath: "spec.forProvider.values.ldap.users.dn"
+        - fromFieldPath: "spec.ldap.users.options.filter"
+          toFieldPath: "spec.forProvider.values.ldap.users.options.filter"
+        - fromFieldPath: "spec.ldap.users.options.scope"
+          toFieldPath: "spec.forProvider.values.ldap.users.options.scope"
+        - fromFieldPath: "spec.ldap.users.map.description"
+          toFieldPath: "spec.forProvider.values.ldap.users.map.description"
+        - fromFieldPath: "spec.ldap.groups.dn"
+          toFieldPath: "spec.forProvider.values.ldap.groups.dn"
+        - fromFieldPath: "spec.ldap.groups.options.filter"
+          toFieldPath: "spec.forProvider.values.ldap.groups.options.filter"
+        - fromFieldPath: "spec.ldap.groups.options.scope"
+          toFieldPath: "spec.forProvider.values.ldap.groups.options.scope"
+        - fromFieldPath: "spec.krateo-dashboard.frontend.image.repository"
+          toFieldPath: "spec.forProvider.values.frontend.image.repository"
+        - fromFieldPath: "spec.krateo-dashboard.frontend.image.tag"
+          toFieldPath: "spec.forProvider.values.frontend.image.tag"
+        - fromFieldPath: "spec.krateo-dashboard.frontend.image.pullPolicy"
+          toFieldPath: "spec.forProvider.values.frontend.image.pullPolicy"
+        - fromFieldPath: "spec.krateo-dashboard.backend.image.repository"
+          toFieldPath: "spec.forProvider.values.backend.image.repository"
+        - fromFieldPath: "spec.krateo-dashboard.backend.image.tag"
+          toFieldPath: "spec.forProvider.values.backend.image.tag"
+        - fromFieldPath: "spec.krateo-dashboard.backend.image.pullPolicy"
+          toFieldPath: "spec.forProvider.values.backend.image.pullPolicy"
+        # oidc
+        - fromFieldPath: "spec.auth.oidc.metadataUrl"
+          toFieldPath: "spec.forProvider.values.auth.oidc.metadataUrl"
+        - fromFieldPath: "spec.auth.oidc.clientId"
+          toFieldPath: "spec.forProvider.values.auth.oidc.clientId"
+        - fromFieldPath: "spec.auth.oidc.clientSecret"
+          toFieldPath: "spec.forProvider.values.auth.oidc.clientSecret"
+        - fromFieldPath: "spec.auth.oidc.authorizationUrl"
+          toFieldPath: "spec.forProvider.values.auth.oidc.authorizationUrl"
+        - fromFieldPath: "spec.auth.oidc.tokenUrl"
+          toFieldPath: "spec.forProvider.values.auth.oidc.tokenUrl"
+        - fromFieldPath: "spec.auth.oidc.tokenSignedResponseAlg"
+          toFieldPath: "spec.forProvider.values.auth.oidc.tokenSignedResponseAlg"
+        - fromFieldPath: "spec.auth.oidc.scope"
+          toFieldPath: "spec.forProvider.values.auth.oidc.scope"
+        - fromFieldPath: "spec.auth.oidc.prompt"
+          toFieldPath: "spec.forProvider.values.auth.oidc.prompt"
+        # session secret
+        - fromFieldPath: "spec.auth.session.secret"
+          toFieldPath: "spec.forProvider.values.auth.session.secret"
+        - fromFieldPath: "spec.krateo-dashboard.jenkins.instances"
+          toFieldPath: "spec.forProvider.values.jenkins.instances"

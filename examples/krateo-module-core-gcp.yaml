@@ -1,0 +1,26 @@
+apiVersion: modules.krateo.io/v1alpha1
+kind: Core
+metadata:
+  name: krateo-module-core
+spec:
+  organization: Kiratech Company
+  frontendUrl: https://krateo-dashboard.krateo.io
+  frontend:
+    service:
+      type: NodePort
+  backendUrl: https://krateo-dashboard.krateo.io
+  backend:
+    service:
+      type: NodePort
+  ingress:
+  lighthouse:
+    enabled: false
+  providers:
+    github:
+      clientId: xx
+      clientSecret: xx
+      token: xx
+  argo-cd:
+    version: 3.26.5
+  krateo-dashboard:
+    version: 0.3.113
