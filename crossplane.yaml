@@ -1,7 +1,7 @@
 apiVersion: meta.pkg.crossplane.io/v1alpha1
 kind: Configuration
 metadata:
-  name: krateo-module-core
+  name: krateo-module-core-legacy
   annotations:
     meta.crossplane.io/maintainer: Diego Braga <diego.braga@kiratech,it>
     meta.crossplane.io/keywords: krateo, core, module, kubernetes, platform, reference

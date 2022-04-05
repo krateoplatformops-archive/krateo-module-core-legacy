@@ -29,7 +29,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Discover github workspace
-        run: cat /home/runner/work/krateo-module-core/krateo-module-core/cluster/definition.yaml
+        run: cat /home/runner/work/krateo-module-core-legacy/krateo-module-core-legacy/cluster/definition.yaml
       - name: Build
         uses: crossplane-contrib/xpkg-action@v0.2.0
         with:
