@@ -156,9 +156,9 @@ spec:
                 kubernetes:
                   description: Kubernetes values
                   type: object
-                  # clusters:
-                  #   description: Kubernetes clusters visible from Krateo dashboard
-                  #   type: array
+                  clusters:
+                    description: Kubernetes clusters visible from Krateo dashboard
+                    type: array
                   # items:
                   #   description: Kubernetes cluster visible from Krateo dashboard
                   #   type: object
