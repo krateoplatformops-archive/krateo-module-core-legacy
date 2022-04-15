@@ -178,22 +178,22 @@ spec:
                         serviceAccountToken:
                           description: Kubernetes cluster serviceAccountToken
                           type: string
-                  # customResources:
-                  #   description: customResources defined for Kubernetes plugin
-                  #   type: array
-                  #   items:
-                  #     description: customResource for Kubernetes plugin
-                  #     type: object
-                  #     properties:
-                  #       apiVersion:
-                  #         description: customResource apiVersion
-                  #         type: string
-                  #       group:
-                  #         description: customResource group
-                  #         type: string
-                  #       plural:
-                  #         description: customResource plural
-                  #         type: string
+                  customResources:
+                    description: customResources defined for Kubernetes plugin
+                    type: array
+                    items:
+                      description: customResource for Kubernetes plugin
+                      type: object
+                      properties:
+                        apiVersion:
+                          description: customResource apiVersion
+                          type: string
+                        group:
+                          description: customResource group
+                          type: string
+                        plural:
+                          description: customResource plural
+                          type: string
                   # properties:
                   #   clusterLocatorMethods:
                   #     type: array
