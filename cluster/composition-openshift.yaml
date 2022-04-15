@@ -449,8 +449,8 @@ spec:
         # kubernetes
         - fromFieldPath: "spec.kubernetes.customResources"
           toFieldPath: "spec.forProvider.values.kubernetes.customResources"
-        - fromFieldPath: "spec.kubernetes.clusters[0].name"
-          toFieldPath: "spec.forProvider.values.kubernetes.clusters[0].name"
+        - fromFieldPath: "spec.kubernetes.clusters"
+          toFieldPath: "spec.forProvider.values.kubernetes.clusters"
         - fromFieldPath: "spec.auth.github.token"
           toFieldPath: "spec.forProvider.values.auth.github.token"
         - fromFieldPath: "spec.auth.github.clientId"
