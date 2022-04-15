@@ -155,10 +155,54 @@ spec:
                       type: string
                 kubernetes:
                   description: Kubernetes values
-                  type: object
-                #   properties:
-                #     clusterLocatorMethods:
-                #       type: array
+                  type: array
+                  clusters:
+                    description: Kubernetes clusters visible from Krateo dashboard
+                    type: array
+                    items:
+                      description: Kubernetes cluster visible from Krateo dashboard
+                      type: object
+                      properties:
+                        url:
+                          description: Kubernetes cluster url
+                          type: string
+                        name:
+                          description: Kubernetes cluster name
+                          type: string
+                        authProvider:
+                          description: Kubernetes cluster authProvider
+                          type: string
+                        skipTLSVerify:
+                          description: Kubernetes cluster skipTLSVerify
+                          type: boolean
+                        # skipMetricsLookup:
+                        #   description: Kubernetes cluster skipMetricsLookup
+                        #   type: boolean
+                        serviceAccountToken:
+                          description: Kubernetes cluster serviceAccountToken
+                          type: string
+                        # caData:
+                        #   description: Kubernetes cluster caData
+                        #   type: string
+                  customResources:
+                    description: customResources defined for Kubernetes plugin
+                    type: array
+                    items:
+                      description: customResource for Kubernetes plugin
+                      type: object
+                      properties:
+                        apiVersion:
+                          description: customResource apiVersion
+                          type: string
+                        group:
+                          description: customResource group
+                          type: string
+                        plural:
+                          description: customResource plural
+                          type: string
+                  # properties:
+                  #   clusterLocatorMethods:
+                  #     type: array
                 #       items:
                 #         description: clusterLocatorMethods array
                 #         type: object
