@@ -227,7 +227,7 @@ spec:
         metadata:
           name: provider-argocd
         spec:
-          package: "ghcr.io/krateoplatformops/crossplane-provider-argocd-token:0.1.14"
+          package: "ghcr.io/krateoplatformops/provider-argocd-token:0.2.2"
           packagePullPolicy: Always
           # packagePullSecrets:
           #   - name: cr-token
